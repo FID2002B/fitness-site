@@ -2,6 +2,9 @@ import './App.css'
 
 import { useState } from 'react'
 
+/** Backend URL for plan API and Fitbit. Set VITE_API_URL in Vercel (and deploy the server) for Fitbit to work online. */
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'athlete'
 
 interface UserProfile {
@@ -509,7 +512,7 @@ function App() {
       setIsGenerating(true)
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 3000)
-      const res = await fetch('http://localhost:4000/api/plan', {
+      const res = await fetch(`${API_BASE}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile, goals }),
@@ -621,7 +624,17 @@ function App() {
     setImportMessage(null)
     setIsFetchingTracker(true)
     try {
-      const authWindow = window.open('http://localhost:4000/auth/fitbit', '_blank', 'width=600,height=800')
+      // Fitbit auth runs on the backend. Online, that backend must be deployed and VITE_API_URL set.
+      const isLocalBackend = API_BASE.includes('localhost')
+      const isOnlineSite = !window.location.origin.includes('localhost')
+      if (isOnlineSite && isLocalBackend) {
+        setImportMessage(
+          'Fitbit connect only works when the app is run locally with the server (npm run server). To use it on the live site, the backend must be deployed and VITE_API_URL set in Vercel.',
+        )
+        setIsFetchingTracker(false)
+        return
+      }
+      const authWindow = window.open(`${API_BASE}/auth/fitbit`, '_blank', 'width=600,height=800')
       if (!authWindow) {
         setImportMessage('Popup was blocked. Please allow popups for this site and try again.')
         setIsFetchingTracker(false)
@@ -638,7 +651,7 @@ function App() {
         }, 500)
       })
 
-      const res = await fetch('http://localhost:4000/api/metrics/fitbit')
+      const res = await fetch(`${API_BASE}/api/metrics/fitbit`)
       if (!res.ok) {
         const errorText = await res.text()
         console.error('Error fetching Fitbit metrics', errorText)
