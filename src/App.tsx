@@ -211,7 +211,8 @@ function inferActivityLevel(profile: UserProfile): ActivityLevel {
   return 'sedentary'
 }
 
-function generatePlan(profile: UserProfile, goals: UserGoals): ActionPlan {
+/** Used for fallback or future "classic" plan; variant is the default. */
+export function generatePlan(profile: UserProfile, goals: UserGoals): ActionPlan {
   const feet = Number(profile.heightFeet || '0')
   const inches = Number(profile.heightInches || '0')
   const totalInches = feet * 12 + inches
@@ -325,9 +326,9 @@ function generatePlan(profile: UserProfile, goals: UserGoals): ActionPlan {
     )
   }
 
-  if (profile.constraints) {
+  if (goals.constraints) {
     lifestyleBullets.push(
-      `Plan around your constraints: ${profile.constraints}. Schedule 2–3 “non-negotiable” movement blocks into your calendar.`,
+      `Plan around your constraints: ${goals.constraints}. Schedule 2–3 “non-negotiable” movement blocks into your calendar.`,
     )
   } else {
     lifestyleBullets.push(
@@ -342,7 +343,7 @@ function generatePlan(profile: UserProfile, goals: UserGoals): ActionPlan {
 
 /** "Generate new plan" builds a mostly different plan (~75%+ new content): different summary, training approach, nutrition angle, and recovery focus. */
 function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan {
-  const pick = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
+  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
   const activityLevel = inferActivityLevel(profile)
   const stepsTarget =
     activityLevel === 'sedentary' ? 6000 :
@@ -350,7 +351,6 @@ function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan
     activityLevel === 'moderate' ? 9000 : 10000
   const timeline = Number(goals.timelineMonths || '0')
   const sleep = Number(profile.sleepHours || '0')
-  const constraints = goals.constraints?.trim() || ''
 
   // Summary: pick one of several completely different angles
   const summary = pick([
