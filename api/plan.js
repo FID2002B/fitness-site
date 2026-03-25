@@ -1,31 +1,9 @@
-import express from 'express'
-import cors from 'cors'
+function toNumber(value, fallback = 0) {
+  const n = Number(value ?? fallback)
+  return Number.isFinite(n) ? n : fallback
+}
 
-const app = express()
-
-const PORT = process.env.PORT || 4000
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
-
-app.use(
-  cors({
-    origin: CLIENT_ORIGIN,
-    credentials: true,
-  }),
-)
-
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' })
-})
-
-function generatePlanFromProfile(profile, goals) {
-  const toNumber = (value, fallback = 0) => {
-    const n = Number(value || fallback)
-    return Number.isFinite(n) ? n : fallback
-  }
-
+function generatePlanFromProfile(profile = {}, goals = {}) {
   const feet = toNumber(profile.heightFeet)
   const inches = toNumber(profile.heightInches)
   const totalInches = feet * 12 + inches
@@ -82,10 +60,10 @@ function generatePlanFromProfile(profile, goals) {
     activityLevel === 'sedentary'
       ? 6000
       : activityLevel === 'light'
-        ? 8000
-        : activityLevel === 'moderate'
-          ? 9000
-          : 10000
+      ? 8000
+      : activityLevel === 'moderate'
+      ? 9000
+      : 10000
 
   const movementVariants = [
     `Aim for about ${baseStepsTarget.toLocaleString()} steps per day by spreading short walks across your day.`,
@@ -188,17 +166,26 @@ function generatePlanFromProfile(profile, goals) {
   return { summary, sections, disclaimers }
 }
 
-app.post('/api/plan', (req, res) => {
+export default function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.statusCode = 405
+    res.setHeader('Allow', 'POST')
+    res.end('Method Not Allowed')
+    return
+  }
+
   try {
-    const { profile = {}, goals = {} } = req.body || {}
+    const body = req.body || {}
+    const { profile = {}, goals = {} } = body
     const plan = generatePlanFromProfile(profile, goals)
-    res.json(plan)
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify(plan))
   } catch (err) {
     console.error('Error generating plan', err)
-    res.status(500).json({ error: 'Failed to generate plan.' })
+    res.statusCode = 500
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ error: 'Failed to generate plan.' }))
   }
-})
+}
 
-app.listen(PORT, () => {
-  console.log(`Plan API listening on http://localhost:${PORT}`)
-})
