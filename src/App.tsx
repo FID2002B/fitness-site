@@ -2,8 +2,11 @@ import './App.css'
 
 import { useState } from 'react'
 
-/** Plan API base. On Vercel leave VITE_API_URL unset. For local Express: VITE_API_URL=http://localhost:4000 */
-const API_BASE = import.meta.env.VITE_API_URL || ''
+/**
+ * Plan wording follows globally cited guidance (not personalized medicine):
+ * WHO (movement, diet patterns, sustainable weight management), international sleep consensus (≥7 h adults),
+ * ISSN (protein ranges for training). National guidelines in many countries align with WHO targets.
+ */
 
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'athlete'
 
@@ -32,10 +35,17 @@ interface PlanSection {
   bullets: string[]
 }
 
+interface PlanSource {
+  title: string
+  url: string
+}
+
 interface ActionPlan {
   summary: string
   sections: PlanSection[]
   disclaimers: string[]
+  webSearchUsed?: boolean
+  sources?: PlanSource[]
 }
 
 function inferActivityLevel(profile: UserProfile): ActivityLevel {
@@ -69,8 +79,12 @@ function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan
     "Build the plan around your schedule and constraints; we'll keep sessions and meals realistic so you can stick with it.",
   ])
 
-  // Movement: choose a different training framework each time
+  // Movement: anchor on WHO global physical activity recommendations, then vary the practical layout
   const movementBullets: string[] = []
+  movementBullets.push(
+    'Weekly baseline from WHO global guidance: adults should get at least 150–300 min/week of moderate-intensity aerobic activity (or 75–150 min vigorous), or an equivalent mix; plus muscle-strengthening for all major muscle groups on at least 2 days/week.',
+  )
+
   const movementApproach = pick([
     () => {
       movementBullets.push(`Hit around ${stepsTarget.toLocaleString()} steps most days—break it into 2–3 short walks so it doesn't feel like one big chunk.`)
@@ -112,10 +126,24 @@ function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan
   movementApproach()
 
   const nutritionBullets: string[] = []
+  if (goals.primaryGoal === 'lose_fat') {
+    nutritionBullets.push(
+      'Weight loss: WHO stresses sustainable healthy eating and energy balance; many programmes worldwide aim for gradual loss—often discussed as about 0.5–1 kg per week (roughly 1–2 lb)—rather than crash diets.',
+    )
+  } else if (goals.primaryGoal === 'build_muscle') {
+    nutritionBullets.push(
+      'Protein for training: sports nutrition reviews (e.g. ISSN) often cite roughly 1.4–2.0 g per kg body weight per day for people doing resistance training, with about 20–40 g protein per meal spread through the day—adjust for preference and digestion.',
+    )
+  } else {
+    nutritionBullets.push(
+      'Overall pattern: WHO healthy-diet principles—ample vegetables and fruits (WHO recommends at least 400 g/day combined), whole grains, legumes, nuts; limit salt, free sugars, and harmful fats.',
+    )
+  }
+
   const nutritionApproach = pick([
     () => {
-      if (goals.primaryGoal === 'lose_fat') nutritionBullets.push('Small deficit: cut 200–400 kcal from your usual intake and aim for ~0.5% bodyweight loss per week.')
-      else if (goals.primaryGoal === 'build_muscle') nutritionBullets.push('Eat at maintenance or a slight surplus; target 0.8–1 g protein per lb bodyweight and spread it across 3–4 meals.')
+      if (goals.primaryGoal === 'lose_fat') nutritionBullets.push('Small deficit: cut roughly 200–500 kcal/day from maintenance and aim for about 0.25–1% body weight loss per week; prioritize protein and fiber so hunger stays manageable.')
+      else if (goals.primaryGoal === 'build_muscle') nutritionBullets.push('Calories: maintenance or a small controlled surplus; keep protein spread across 3–5 eating times with a quality source at each.')
       else nutritionBullets.push('Eat regularly and focus on whole foods; limit liquid calories and large late-night meals.')
       if (profile.nutritionQuality === 'poor' || profile.nutritionQuality === 'ok') {
         nutritionBullets.push('Upgrade one anchor meal first (e.g. breakfast or lunch) to include protein + vegetables + whole grains.')
@@ -124,8 +152,8 @@ function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan
       if (timeline >= 3) nutritionBullets.push('Reassess every 4–6 weeks: adjust calories or portions gradually instead of big swings.')
     },
     () => {
-      if (goals.primaryGoal === 'lose_fat') nutritionBullets.push('Prioritize protein and fiber at each meal; reduce added sugars and fried foods. Let the deficit be modest and consistent.')
-      else if (goals.primaryGoal === 'build_muscle') nutritionBullets.push('Surplus of 100–300 kcal with 0.7–1.0 g protein per lb; prioritize post-workout nutrition and sleep.')
+      if (goals.primaryGoal === 'lose_fat') nutritionBullets.push('Prioritize protein and fiber at each meal; reduce added sugars and fried foods. Let the deficit be modest and consistent—fast drops often cost lean mass.')
+      else if (goals.primaryGoal === 'build_muscle') nutritionBullets.push('If gaining too fast, trim surplus slightly; if stalled, add about 100–300 kcal from mostly whole foods. Pair training with adequate sleep (recovery drives adaptation).')
       else nutritionBullets.push('Stable meal timing and balanced plates (protein + veg + starch); avoid binge–restrict cycles.')
       if (profile.nutritionQuality === 'poor' || profile.nutritionQuality === 'ok') {
         nutritionBullets.push('Pick the one meal you control most and make it higher in protein and vegetables; repeat that template often.')
@@ -134,8 +162,8 @@ function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan
       if (timeline >= 3) nutritionBullets.push('Every month, review weight and energy; make small adjustments rather than overhauling the plan.')
     },
     () => {
-      if (goals.primaryGoal === 'lose_fat') nutritionBullets.push('Gentle deficit with an emphasis on satiety: protein and vegetables first, then starches and fats.')
-      else if (goals.primaryGoal === 'build_muscle') nutritionBullets.push('Slight surplus, 0.8+ g protein per lb, and enough carbs around training to support performance.')
+      if (goals.primaryGoal === 'lose_fat') nutritionBullets.push('Gentle deficit with an emphasis on satiety: protein and vegetables first, then starches and fats—fiber helps adherence.')
+      else if (goals.primaryGoal === 'build_muscle') nutritionBullets.push('Carbohydrate timing: include starch or fruit around harder sessions for performance; total daily protein matters more than one “magic” post-workout window.')
       else nutritionBullets.push('Eat at consistent times; favor whole foods and limit ultra-processed options.')
       if (profile.nutritionQuality === 'poor' || profile.nutritionQuality === 'ok') {
         nutritionBullets.push('Improve one meal at a time—e.g. swap a default lunch for a higher-protein, higher-fiber option you enjoy.')
@@ -147,13 +175,16 @@ function generatePlanVariant(profile: UserProfile, goals: UserGoals): ActionPlan
   nutritionApproach()
 
   const lifestyleBullets: string[] = []
-  if (!sleep || sleep < 6) {
+  lifestyleBullets.push(
+    'Sleep: international sleep-medicine consensus recommends at least 7 hours per night for adults regularly; many people feel best with 7–9 hours.',
+  )
+  if (!sleep || sleep < 7) {
     lifestyleBullets.push(
-      'Work toward 7–9 hours of sleep by setting a consistent wind-down routine 30–60 minutes before bed (screens off, dim lights, quiet activity).',
+      'If you’re short on sleep: fixed wake time, dim light and screens down 30–60 min before bed, and a simple wind-down (read, stretch)—sleep drives appetite, recovery, and training quality.',
     )
   } else {
     lifestyleBullets.push(
-      'Protect your current sleep schedule; it is one of the biggest drivers of recovery, appetite, and motivation.',
+      'Protect a stable sleep window; short sleep raises injury and overeating risk and blunts training gains.',
     )
   }
   if (goals.constraints) {
@@ -207,29 +238,6 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showIntro, setShowIntro] = useState(true)
 
-  const fetchPlanFromApi = async () => {
-    try {
-      setIsGenerating(true)
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000)
-      const res = await fetch(`${API_BASE}/api/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile, goals }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-      if (!res.ok) throw new Error(`Plan API failed with status ${res.status}`)
-      const data = (await res.json()) as ActionPlan
-      setPlan(data)
-    } catch {
-      const variant = generatePlanVariant(profile, goals)
-      setPlan(variant)
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
   const handleGenerateNewPlan = () => {
     setIsGenerating(true)
     setPlan(generatePlanVariant(profile, goals))
@@ -238,7 +246,7 @@ function App() {
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault()
-    void fetchPlanFromApi()
+    setPlan(generatePlanVariant(profile, goals))
   }
 
   if (showIntro) {
